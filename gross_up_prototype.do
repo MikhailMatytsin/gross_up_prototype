@@ -100,20 +100,33 @@ forvalues i = 1 / `=N_brack_j' {
 gen tax_base_gross = tax_base_net - tax_j // tax is negative here
 
 * Stage 6. from gross to net using two separate taxes
-forvalues t = 1 / 2 {
-	*disp  `=N_brack_`t''
-	cap drop tax_`t'
-	gen tax_`t' = 0
-	forvalues i = 1 / `=N_brack_`t'' {
+
+*------------------------------------------------------------------------------------------------------------------------
+* This porgram calculates progressive tax
+capture program drop progressive_tax_net_to_gross
+program define progressive_tax_net_to_gross
+syntax, tax_base_gross(varname) tax(string) n_br(real)
+
+	cap drop `tax'
+	gen `tax' = 0
+	
+	forvalues i = 1 / `n_br' {
 		local ii = `i' - 1
 			
-		qui gen tax_`t'_`i' = 0 if tax_base_gross <= ${gc_`t'_`ii'}
-		qui replace tax_`t'_`i' = -1 * ${r_`t'_`i'} * (tax_base_gross - ${gc_`t'_`ii'}) if tax_base_gross >  ${gc_`t'_`ii'} & tax_base_gross <= ${gc_`t'_`i'}
-		qui replace tax_`t'_`i' = -1 * ${r_`t'_`i'} * (${gc_`t'_`i'} - ${gc_`t'_`ii'}) if tax_base_gross >  ${gc_`t'_`i'} 
+		qui gen tax_b_`i' = 0 if `tax_base_gross' <= ${gc_${t}_`ii'}
+		qui replace tax_b_`i' = -1 * ${r_${t}_`i'} * (`tax_base_gross' - ${gc_${t}_`ii'}) if `tax_base_gross' >  ${gc_${t}_`ii'} & `tax_base_gross' <= ${gc_${t}_`i'}
+		qui replace tax_b_`i' = -1 * ${r_${t}_`i'} * (${gc_${t}_`i'} - ${gc_${t}_`ii'}) if `tax_base_gross' >  ${gc_${t}_`i'} 
 		
-		qui replace tax_`t' = tax_`t' + tax_`t'_`i'
-		drop tax_`t'_`i'
+		qui replace `tax' = `tax' + tax_b_`i'
+		drop tax_b_`i'
 	}
+
+end
+*------------------------------------------------------------------------------------------------------------------------
+
+forvalues t = 1 / 2 {
+	global t = `t'
+	progressive_tax_net_to_gross, tax_base_gross(tax_base_gross) tax(tax_${t}) n_br(`=N_brack_${t}')
 }
 
 
@@ -138,4 +151,7 @@ replace tax_base_net = tax_base_gross + tax_j
 
 su tax_base_orig tax_base_net tax_base_gross tax_1 tax_2 tax_j
 assert tax_base_net == tax_base_orig
+
+
+* Stage 9. Iterative procedure
 
