@@ -1,0 +1,141 @@
+clear
+global N = 100
+set obs ${N}
+
+gen wage = .
+gen non_labor = .
+
+forvalues i = 1 / $N {
+	replace wage = 100 + `i' * 10 in `i'
+	replace non_labor = 600 - `i' * 5 in `i'
+} 
+assert wage > 0
+assert non_labor > 0
+
+global max_cut_off = 10 ^ 10 // very big number
+
+* Stage 1. We define marginal rates and cut-offs for two taxes.
+
+* Tax 1.
+// rates by brackets
+global r_1_1 = 0.05
+global r_1_2 = 0.15
+global r_1_3 = 0.25
+global r_1_4 = 0.35
+global r_1_5 = 0.45
+
+// cutoffs for gross income
+global gc_1_0 = 0
+global gc_1_1 = 100
+global gc_1_2 = 200
+global gc_1_3 = 500
+global gc_1_4 = 1000
+global gc_1_5 = ${max_cut_off}
+
+scalar N_brack_1 = 5 // I did not find the way to put into the loop $N_brack_`t'
+
+* Tax 2.
+// rates by brackets
+global r_2_1 = 0.10
+global r_2_2 = 0.20
+global r_2_3 = 0.30
+
+// cutoffs for gross income
+global gc_2_0 = 0
+global gc_2_1 = 250
+global gc_2_2 = 500
+global gc_2_3 = ${max_cut_off}
+
+scalar N_brack_2 = 3
+
+local i1 = 1 // index of the bracket for the first tax
+local i2 = 1 // index of the bracket for the second tax
+
+* Stage 2. We calculate the rates and the cut-offs for the joint tax such that the value of joint tax is equivalent to the sum of the two taxes separately (we check it later)
+global gc_j_0 = 0
+forvalues s = 1 / 100 { // we put here high number, but when we reach the maximum, we end the cycle
+	
+	global gc_j_`s' = min(${gc_1_`i1'}, ${gc_2_`i2'}) // the cutoff for the joint tax is the minimum of the lowest among the two.
+	global r_j_`s' = ${r_1_`i1'} + ${r_2_`i2'} // (1 + ${r_1_`i1'}) * (1 + ${r_2_`i2'}) - 1 // the rate is combination of the two rates
+
+	disp "bracket `s'. The rate for income under ${gc_j_`s'} is ${r_j_`s'}"
+	*disp "`i1' `i2'"
+	*disp " "
+	
+	if ${gc_j_`s'} == ${max_cut_off} { // we can do this better, but it is fine for now. 
+		scalar def N_brack_j = `s'
+		continue, break
+	}
+	
+	forvalues t = 1 / 2 {
+		if ${gc_j_`s'} == ${gc_`t'_`i`t''} {
+		local i`t' = `i`t'' + 1 // if the cutoff for the joint tax equals to the cutoff of either tax1 or tax2, we switch to the next bracket. 
+		}
+	}
+}
+
+* Stage 3. Actual calculator. Defining the net income
+gen tax_base_orig = 4005 // Put any number here
+gen tax_base_net = tax_base_orig
+
+* Stage 5. from net to gross using the joint tax.
+cap drop tax_j
+gen tax_j = 0
+global nc_j_0 = ${gc_j_0}
+global cum_previous_brackets = 0
+forvalues i = 1 / `=N_brack_j' { 
+	local ii = `i' - 1
+
+	global cum_previous_brackets = ${cum_previous_brackets} + (${gc_j_`i'} - ${gc_j_`ii'}) * ${r_j_`i'}
+	global nc_j_`i' = ${gc_j_`i'} - ${cum_previous_brackets}
+	disp "net cutoff for bracket `i' is " ${nc_j_`i'}
+
+	qui gen tax_j_`i' = 0 if inrange(tax_base_net, . , ${nc_j_`ii'})
+	qui replace tax_j_`i' = -1 * (tax_base_net - ${nc_j_`ii'}) / (1 - ${r_j_`i'}) * ${r_j_`i'} if inrange(tax_base_net, ${nc_j_`ii'}, ${nc_j_`i'})
+	qui replace tax_j_`i' = -1 * (${nc_j_`i'}  - ${nc_j_`ii'}) / (1 - ${r_j_`i'}) * ${r_j_`i'} if inrange(tax_base_net, ${nc_j_`i'},.)
+	qui replace tax_j = tax_j + tax_j_`i'
+	drop tax_j_`i'
+}
+
+gen tax_base_gross = tax_base_net - tax_j // tax is negative here
+
+* Stage 6. from gross to net using two separate taxes
+forvalues t = 1 / 2 {
+	*disp  `=N_brack_`t''
+	cap drop tax_`t'
+	gen tax_`t' = 0
+	forvalues i = 1 / `=N_brack_`t'' {
+		local ii = `i' - 1
+			
+		qui gen tax_`t'_`i' = 0 if tax_base_gross <= ${gc_`t'_`ii'}
+		qui replace tax_`t'_`i' = -1 * ${r_`t'_`i'} * (tax_base_gross - ${gc_`t'_`ii'}) if tax_base_gross >  ${gc_`t'_`ii'} & tax_base_gross <= ${gc_`t'_`i'}
+		qui replace tax_`t'_`i' = -1 * ${r_`t'_`i'} * (${gc_`t'_`i'} - ${gc_`t'_`ii'}) if tax_base_gross >  ${gc_`t'_`i'} 
+		
+		qui replace tax_`t' = tax_`t' + tax_`t'_`i'
+		drop tax_`t'_`i'
+	}
+}
+
+
+* Stage 7. from gross to net using the joint taxes (to check if this is identical)
+cap drop tax_j
+gen tax_j = 0
+forvalues i = 1 / `=N_brack_j' {
+	local ii = `i' - 1
+			
+	qui gen tax_j_`i' = 0 if tax_base_gross <= ${gc_j_`ii'}
+	qui replace tax_j_`i' = -1 * ${r_j_`i'} * (tax_base_gross - ${gc_j_`ii'}) if tax_base_gross >  ${gc_j_`ii'} & tax_base_gross <= ${gc_j_`i'}
+	qui replace tax_j_`i' = -1 * ${r_j_`i'} * (${gc_j_`i'} - ${gc_j_`ii'}) if tax_base_gross >  ${gc_j_`i'} 
+		
+	qui replace tax_j = tax_j + tax_j_`i'
+	drop tax_j_`i'
+}
+
+* Stage 8. Checking the consistncy: two taxes should equal joint tax. Going from net to gross and then back should lead to the same result. 
+assert tax_1 + tax_2 == tax_j 
+
+replace tax_base_net = tax_base_gross + tax_j
+
+su tax_base_orig tax_base_net tax_base_gross tax_1 tax_2 tax_j
+assert tax_base_net == tax_base_orig
+
