@@ -102,9 +102,9 @@ gen tax_base_gross = tax_base_net - tax_j // tax is negative here
 * Stage 6. from gross to net using two separate taxes
 
 *------------------------------------------------------------------------------------------------------------------------
-* This porgram calculates progressive tax
-capture program drop progressive_tax_net_to_gross
-program define progressive_tax_net_to_gross
+* This progressive calculates progressive tax
+capture program drop progressive_tax_gross_to_net
+program define progressive_tax_gross_to_net
 syntax, tax_base_gross(varname) tax(string) n_br(real)
 
 	cap drop `tax'
@@ -126,7 +126,7 @@ end
 
 forvalues t = 1 / 2 {
 	global t = `t'
-	progressive_tax_net_to_gross, tax_base_gross(tax_base_gross) tax(tax_${t}) n_br(`=N_brack_${t}')
+	progressive_tax_gross_to_net, tax_base_gross(tax_base_gross) tax(tax_${t}) n_br(`=N_brack_${t}')
 }
 
 
@@ -154,4 +154,45 @@ assert tax_base_net == tax_base_orig
 
 
 * Stage 9. Iterative procedure
+set seed 1
+gen rand = uniform()
+gen tax_base_gross_it = 1800 + rand * (3780 - 1800)
+*gen tax_base_gross_it = 2750
 
+local s = 1
+
+global d = 0.1
+
+forvalues s = 1 / 1000000 {
+	
+	forvalues t = 1 / 2 {
+		global t = `t'
+		progressive_tax_gross_to_net, tax_base_gross(tax_base_gross_it) tax(tax_${t}) n_br(`=N_brack_${t}')
+	}
+	cap drop tax_base_net_it
+	gen tax_base_net_it = tax_base_gross_it + tax_1 + tax_2
+
+	cap drop diff
+	gen diff = tax_base_net_it - tax_base_net
+
+	if floor(`s' / 1000) * 1000 == `s' {
+		disp "step `s'"
+		su tax_base_net_it tax_base_net diff
+	}
+
+	
+	qui su diff
+	if `r(max)' <= ${d} & `r(min)' >= -${d} {
+		disp `s'
+		continue, break
+	}
+	
+	qui replace tax_base_gross_it = tax_base_gross_it + ${d} if diff < -${d}
+	qui replace tax_base_gross_it = tax_base_gross_it - ${d} if diff >  ${d}
+	
+	local s = `s' + 1
+	global s = `s'
+}
+	su tax_base_net_it tax_base_net diff
+	disp ${s}
+	assert round(tax_base_net_it - tax_base_orig, ${d} * 10) == 0
