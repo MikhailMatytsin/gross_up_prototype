@@ -141,20 +141,20 @@ gen tax_base_orig = WN + NLN
 gen tax_base_net = tax_base_orig
 su tax_base_orig tax_base_net 
 
-* Stage 5. from net to gross using the joint tax.
+* Stage 4. from net to gross using the joint tax.
 progressive_tax_net_to_gross, tax_base_net(tax_base_net) tax_variable(tax_joint) tax_name(joint)
 gen tax_base_gross = tax_base_net - tax_joint // tax is negative here
 su tax_base_orig tax_base_net tax_base_gross tax_joint
 
-* Stage 6. from gross to net using two separate taxes
+* Stage 5. from gross to net using two separate taxes
 progressive_tax_gross_to_net, tax_base_gross(tax_base_gross) tax_variable(PIT) tax_name(PIT)
 progressive_tax_gross_to_net, tax_base_gross(tax_base_gross) tax_variable(SSC) tax_name(SSC)
 
-* Stage 7. from gross to net using the joint taxes (to check if this is identical)
+* Stage 6. from gross to net using the joint taxes (to check if this is identical)
 progressive_tax_gross_to_net, tax_base_gross(tax_base_gross) tax_variable(tax_joint) tax_name(joint)
 su tax_base_orig tax_base_net tax_base_gross tax_joint
 
-* Stage 8. Checking the consistncy: two taxes should equal joint tax. Going from net to gross and then back should lead to the same result. 
+* Stage 7. Checking the consistncy: two taxes should equal joint tax. Going from net to gross and then back should lead to the same result. 
 assert round(PIT + SSC - tax_joint, 10 ^ (-10)) == 0
 
 replace tax_base_net = tax_base_gross + tax_joint
