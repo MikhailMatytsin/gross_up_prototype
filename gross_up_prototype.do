@@ -139,12 +139,11 @@ forvalues s = 1 / 100 { // we put here high number, but when we reach the maximu
 * Stage 3. Actual calculator. Defining the net income
 gen tax_base_orig = WN + NLN 
 gen tax_base_net = tax_base_orig
-su tax_base_orig tax_base_net 
 
+* TESTING
 * Stage 4. from net to gross using the joint tax.
 progressive_tax_net_to_gross, tax_base_net(tax_base_net) tax_variable(tax_joint) tax_name(joint)
 gen tax_base_gross = tax_base_net - tax_joint // tax is negative here
-su tax_base_orig tax_base_net tax_base_gross tax_joint
 
 * Stage 5. from gross to net using two separate taxes
 progressive_tax_gross_to_net, tax_base_gross(tax_base_gross) tax_variable(PIT) tax_name(PIT)
@@ -152,13 +151,11 @@ progressive_tax_gross_to_net, tax_base_gross(tax_base_gross) tax_variable(SSC) t
 
 * Stage 6. from gross to net using the joint taxes (to check if this is identical)
 progressive_tax_gross_to_net, tax_base_gross(tax_base_gross) tax_variable(tax_joint) tax_name(joint)
-su tax_base_orig tax_base_net tax_base_gross tax_joint
 
-* Stage 7. Checking the consistncy: two taxes should equal joint tax. Going from net to gross and then back should lead to the same result. 
+* Stage 7. Checking the consistency: two taxes should equal joint tax. Going from net to gross and then back should lead to the same result. 
 assert round(PIT + SSC - tax_joint, 10 ^ (-10)) == 0
 
 replace tax_base_net = tax_base_gross + tax_joint
-
 su tax_base_orig tax_base_net tax_base_gross PIT SSC tax_joint
 assert tax_base_net == tax_base_orig
 * END OF TESTING
