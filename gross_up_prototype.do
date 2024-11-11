@@ -1,14 +1,16 @@
 /* EXAMPLE:
 
-WN - net wages
+WN - net wages (observed)
 WC - contract wages (wages before PIT)
 WG - wages gross
 
-NLN - non-labor income net
+NLN - non-labor income net (observed)
 NLG - non-labor income gross
-
+ 
+Assumptions: 
 * PIT = PIT(WC + NLG)
 * SSC = SSC(WC)
+****** payroll_tax = payroll(WC)
 */
 
 *------------------------------------------------------------------------------------------------------------------------
@@ -140,7 +142,8 @@ forvalues s = 1 / 100 { // we put here high number, but when we reach the maximu
 gen tax_base_orig = WN + NLN 
 gen tax_base_net = tax_base_orig
 
-* TESTING
+* TESTING 
+{
 * Stage 4. from net to gross using the joint tax.
 progressive_tax_net_to_gross, tax_base_net(tax_base_net) tax_variable(tax_joint) tax_name(joint)
 gen tax_base_gross = tax_base_net - tax_joint // tax is negative here
@@ -159,6 +162,7 @@ replace tax_base_net = tax_base_gross + tax_joint
 su tax_base_orig tax_base_net tax_base_gross PIT SSC tax_joint
 assert tax_base_net == tax_base_orig
 * END OF TESTING
+}
 
 * 1. Algebraic
 progressive_tax_net_to_gross, tax_base_net(WN) tax_variable(PIT_wage) tax_name(PIT)
@@ -172,8 +176,10 @@ progressive_tax_net_to_gross, tax_base_net(PIT_base_net) tax_variable(PIT) tax_n
 gen WG = WC - SSC
 gen NLG = NLN - PIT + PIT_wage
 
+	* check that the indentity is valid: WN + NLN + PIT + SSC == WG + NLG
 	assert round(WN + NLN - PIT - SSC - (WG + NLG), 10 ^ (-10)) == 0
 
+	* Net down:
 	gen PIT_base_gross = WC + NLG
 	progressive_tax_gross_to_net, tax_base_gross(PIT_base_gross) tax_variable(PIT_test) tax_name(PIT)
 	su PIT PIT_test
