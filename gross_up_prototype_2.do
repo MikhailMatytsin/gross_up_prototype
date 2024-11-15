@@ -3,8 +3,8 @@ program define Dir_tax
 syntax, 
 
 gen IMSS = - labor_market_income * 0.1
-gen labor_market_income_net = labor_market_income + IMSS
-gen other_income_net = other_income
+gen labor_market_income_it = labor_market_income + IMSS
+gen other_income_it = other_income
 
 foreach var in $SSC $direct_taxes {
 	cap gen `var' = 0
@@ -45,7 +45,7 @@ foreach var in $market_income {
 * finding gross_labor_market_income
 forvalues s = 1 / $s_max {
 	
-	foreach var in $direct_taxes $SSC labor_market_income_net other_income_net {
+	foreach var in $direct_taxes $SSC labor_market_income_it other_income_it {
 		cap drop `var'
 	}
 	
@@ -54,7 +54,7 @@ forvalues s = 1 / $s_max {
 
 	foreach var in $market_income {
 		cap drop `var'_gap
-		gen `var'_gap = `var'_net - `var'_orig
+		gen `var'_gap = `var'_it - `var'_orig
 	}
 	
 	
@@ -100,7 +100,7 @@ assert round(net_market_income_orig - net_market_income, 10 ^ (0)) == 0 // this 
 
 foreach var in $market_income {
 	cap drop gap_`var'
-	gen gap_`var' = `var'_net - `var'_orig
+	gen gap_`var' = `var'_it - `var'_orig
 }
 su gap_*
 
