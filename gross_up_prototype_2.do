@@ -57,8 +57,8 @@ forvalues s = 1 / $s_max {
 		gen `var'_gap = `var'_it - `var'_orig
 	}
 	
-	
-	if floor(`s' / 1000) * 1000 == `s' {
+	global report = 1
+	if floor(`s' / $report) * $report == `s' {
 		disp "step `s'"
 		su *_gap
 	}
@@ -79,8 +79,7 @@ forvalues s = 1 / $s_max {
 	}
 	
 	foreach var in $market_income {
-		qui replace `var' = `var' + ${d} if `var'_gap < -${d}	//	 & !inrange(diff,-${d},${d})
-		qui replace `var' = `var' - ${d} if `var'_gap >  ${d}	//	 & !inrange(diff,-${d},${d})
+		qui replace `var' = `var' - `var'_gap 
 	}
 	local s = `s' + 1
 
