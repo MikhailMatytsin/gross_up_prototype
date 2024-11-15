@@ -2,8 +2,9 @@ capture program drop Dir_tax
 program define Dir_tax
 syntax, 
 
-gen IMSS = - labor_market_income * 0.1
-gen labor_market_income_it = labor_market_income + IMSS
+gen PIT = -0.13 * labor_market_income
+gen SIC = -0.3 * (labor_market_income + PIT) / (1 + 0.3) // we need to convert this to net base. In worst case we can do a separate iterative procedure. 
+gen labor_market_income_it = labor_market_income + PIT + SIC
 gen other_income_it = other_income
 
 foreach var in $SSC $direct_taxes {
@@ -15,19 +16,25 @@ end
 
 global market_income 				labor_market_income other_income
 global direct_taxes					PIT
-global SSC							IMSS
+global SSC							SIC
 
-global d = 0.1
+global d = 10 ^ (-10)
 global s_max = 10 ^ 6
 
-
+/*
 clear 
 set obs 1000
 gen hh_id = _n
 gen p_id = 1
 gen labor_market_income = 100 + 10 * _n
 gen other_income = 5000 - 3 * _n
-
+*/
+clear
+set obs 1
+gen hh_id = _n
+gen p_id = 1
+gen labor_market_income = 87 // this is net
+gen other_income = 0
 
 
 mvencode ${market_income}, mv(0) override
@@ -94,8 +101,8 @@ qui Dir_tax
 mvencode ${SSC} ${direct_taxes}, mv(0) override 
 
 egen net_market_income = rowtotal(${market_income} ${SSC} ${direct_taxes})
-*assert round((net_market_income / net_market_income_orig - 1) , 10 ^ (-2)) == 0 if net_market_income_orig > 0
-assert round(net_market_income_orig - net_market_income, 10 ^ (0)) == 0 // this is to check that in baseline the original (survey based) and simulated net market incomes are identical
+egen market_income = rowtotal(${market_income} )
+assert round(net_market_income_orig - net_market_income, ${d} * 10) == 0 // this is to check that in baseline the original (survey based) and simulated net market incomes are identical
 
 foreach var in $market_income {
 	cap drop gap_`var'
@@ -103,6 +110,6 @@ foreach var in $market_income {
 }
 su gap_*
 
-order hh_id p_id net_market_income_orig net_market_income labor_market_income_orig labor_market_income other_income_orig other_income $SSC $direct_taxes
+order hh_id p_id market_income net_market_income_orig net_market_income labor_market_income_orig labor_market_income other_income_orig other_income $SSC $direct_taxes
 xxxxxxxxxxxxxxxxxx
 /*
