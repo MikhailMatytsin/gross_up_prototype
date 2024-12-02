@@ -4,7 +4,11 @@ syntax,
 
 gen SIC = -0.3 * (labor_market_income_contr)  // we need to convert this to net base. In worst case we can do a separate iterative procedure. 
 gen labor_market_income_gross = labor_market_income_contr - SIC
-gen other_income_gross = other_income
+
+foreach var in $market_income {
+	cap gen `var'_gross = `var'
+}
+
 
 foreach var in $SSC {
 	cap gen `var' = 0
@@ -17,7 +21,10 @@ syntax,
 
 gen PIT = -0.13 * labor_market_income_contr
 gen labor_market_income_net = labor_market_income_contr + PIT
-gen other_income_net = other_income
+
+foreach var in $market_income {
+	cap gen `var'_net = `var'
+}
 
 foreach var in $direct_taxes {
 	cap gen `var' = 0
