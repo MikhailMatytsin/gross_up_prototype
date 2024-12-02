@@ -1,17 +1,3 @@
-/*
-capture program drop SSC_netting_down
-program define SSC_netting_down
-syntax, 
-
-gen SIC = -0.3 * (labor_market_income ) / (1 + 0.3) // we need to convert this to net base. In worst case we can do a separate iterative procedure. 
-gen labor_market_income_net = labor_market_income + SIC
-
-foreach var in $SSC {
-	cap gen `var' = 0
-}
-end
-*/
-
 capture program drop SSC_grossing_up
 program define SSC_grossing_up
 syntax, 
@@ -81,7 +67,7 @@ forvalues s = 1 / $s_max {
 
 	foreach var in $market_income {
 		cap drop `var'_gap
-		gen `var'_gap = `var'_net - `var'_orig
+		gen `var'_gap =  `var'_orig - `var'_net
 	}
 	
 	global report = 1
@@ -106,7 +92,7 @@ forvalues s = 1 / $s_max {
 	}
 	
 	foreach var in $market_income {
-		qui replace `var'_contr = `var'_contr - `var'_gap 
+		qui replace `var'_contr = `var'_contr + `var'_gap 
 	}
 	local s = `s' + 1
 
@@ -137,7 +123,7 @@ forvalues s = 1 / $s_max {
 
 	foreach var in $market_income {
 		cap drop `var'_gap
-		gen `var'_gap = `var'_gross - `var'_orig2
+		gen `var'_gap = `var'_orig2 - `var'_gross
 	}
 	
 	global report = 1
@@ -162,7 +148,7 @@ forvalues s = 1 / $s_max {
 	}
 	
 	foreach var in $market_income {
-		qui replace `var'_contr = `var'_contr - `var'_gap 
+		qui replace `var'_contr = `var'_contr + `var'_gap 
 	}
 	local s = `s' + 1
 
