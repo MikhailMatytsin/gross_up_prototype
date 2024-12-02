@@ -3,7 +3,7 @@ program define direct_taxes_netting_down
 syntax, 
 
 gen PIT = -0.13 * labor_market_income
-gen labor_market_income_it = labor_market_income + PIT
+gen labor_market_income_net = labor_market_income + PIT
 
 foreach var in $direct_taxes {
 	cap gen `var' = 0
@@ -14,16 +14,16 @@ capture program drop SSC_netting_down
 program define SSC_netting_down
 syntax, 
 
-gen SIC = -0.3 * (labor_market_income_it ) / (1 + 0.3) // we need to convert this to net base. In worst case we can do a separate iterative procedure. 
-replace labor_market_income_it = labor_market_income_it + SIC
-gen other_income_it = other_income
+gen SIC = -0.3 * (labor_market_income_net ) / (1 + 0.3) // we need to convert this to net base. In worst case we can do a separate iterative procedure. 
+replace labor_market_income_net = labor_market_income_net + SIC
+gen other_income_net = other_income
 
 foreach var in $SSC {
 	cap gen `var' = 0
 }
 end
 
-// MAKE THE cycle working with *_it
+// MAKE THE cycle working with *_net
 
 global market_income 				labor_market_income other_income
 global direct_taxes					PIT
@@ -64,7 +64,7 @@ foreach var in $market_income {
 * finding gross_labor_market_income
 forvalues s = 1 / $s_max {
 	
-	foreach var in $direct_taxes $SSC labor_market_income_it other_income_it {
+	foreach var in $direct_taxes $SSC labor_market_income_net other_income_net {
 		cap drop `var'
 	}
 	
@@ -74,7 +74,7 @@ forvalues s = 1 / $s_max {
 
 	foreach var in $market_income {
 		cap drop `var'_gap
-		gen `var'_gap = `var'_it - `var'_orig
+		gen `var'_gap = `var'_net - `var'_orig
 	}
 	
 	global report = 1
@@ -120,7 +120,7 @@ assert round(net_market_income_orig - net_market_income, ${d} * 10) == 0 // this
 
 foreach var in $market_income {
 	cap drop gap_`var'
-	gen gap_`var' = `var'_it - `var'_orig
+	gen gap_`var' = `var'_net - `var'_orig
 }
 su gap_*
 
