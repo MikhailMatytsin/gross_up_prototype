@@ -59,7 +59,7 @@ global PIT_pt_r = ${PIT_pt_b}
 global SIC_pt_r = ${SIC_pt_b}
 
 global d = 10 ^ (-10)
-global s_max = 10 ^ 2
+global report = 1
 
 set varabbrev off
 clear
@@ -86,7 +86,10 @@ foreach var in $market_income {
 
 
 * step 1. finding contract wages (gross for PIT and SSC)
-forvalues s = 1 / $s_max {
+local s = 1
+scalar max_gap = $d * 2 // to start the cycle
+
+while max_gap > $d | min_gap < -$d {
 	
 	foreach var in $direct_taxes labor_inc_net other_inc_net  {
 		cap drop `var'
@@ -99,7 +102,7 @@ forvalues s = 1 / $s_max {
 		gen `var'_gap =  `var'_net_b - `var'_it
 	}
 	
-	global report = 1
+
 	if floor(`s' / $report) * $report == `s' {
 		disp "step `s'"
 		su *_gap
@@ -114,18 +117,16 @@ forvalues s = 1 / $s_max {
 		scalar min_gap = min(min_gap,`r(min)')
 	}	
 	
-	if max_gap <= ${d} & min_gap >= -${d} {
-		disp "end at step `s'"
-		su *_gap
-		continue, break
-	}
-	
+
 	foreach var in $market_income {
 		qui replace `var'_stat_b = `var'_stat_b + `var'_gap 
 	}
 	local s = `s' + 1
-
 }
+disp "end at step `s'"
+su *_gap
+
+
 
 * step 2. Calculating SSC using contract wages
 SSC_grossing_up, labor_inc_stat(labor_inc_stat_b) other_inc_stat(other_inc_stat_b) sic_rate(${SIC_rate_b}) sic(SIC_b) labor_inc_gross(labor_inc_gross_b) other_inc_gross(other_inc_gross_b)
@@ -142,7 +143,7 @@ gen other_inc_eq_b = labor_inc_net_b
 foreach var in $market_income {
 	gen `var'_eq_r = `var'_eq_b 
 }
-ssssssssssssssssssss
+
 * step 5. 
 
 
