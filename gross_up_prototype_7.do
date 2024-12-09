@@ -12,6 +12,8 @@ global sic_pt_b = 1
 global pit_pt_r = 1
 global sic_pt_r = 1
 
+* We assume that statutory income includes PIT and excludes SIC
+
 global market_income 				labor_inc self_inc other_inc
 global direct_taxes					pit
 global SSC							sic
