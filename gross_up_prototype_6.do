@@ -48,8 +48,7 @@ global pit_rate_b = 0.13
 global sic_rate_b = 0.3
 
 global pit_rate_r = 0.13
-global sic_rate_r = 0.6
-
+global sic_rate_r = 0.3
 
 global pit_pt_b = 1
 global sic_pt_b = 1
