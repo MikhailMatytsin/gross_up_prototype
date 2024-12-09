@@ -10,20 +10,6 @@ foreach var in ${`varlist'} {
 
 end
 
-capture program drop SSC_grossing_up
-program define SSC_grossing_up
-syntax, labor_inc_stat(varname) other_inc_stat(varname) sic_rate(real) sic(string) labor_inc_gross(string) other_inc_gross(string)
-
-cap drop `sic'
-gen `sic' = -1 * `sic_rate' * `labor_inc_stat'
-
-cap drop `labor_inc_gross'
-gen `labor_inc_gross' = `labor_inc_stat' - `sic'
-
-cap drop `other_inc_gross'
-gen `other_inc_gross' = `other_inc_stat'
-end
-
 capture program drop SSC_direct_taxes_statutory
 program define SSC_direct_taxes_statutory
 syntax, pit_taxable_list(namelist) pit_rate(real) sic_taxable_list(namelist) sic_rate(real) scen(string) 
@@ -32,8 +18,8 @@ foreach tax in pit sic {
 	cap drop `tax'_base_`scen'
 	gen `tax'_base_`scen' = 0
 	foreach var in ``tax'_taxable_list' {
-		mvencode `var'_stat_`scen', mv(0) override
-		replace `tax'_base_`scen' = `tax'_base_`scen' + `var'_stat_`scen'
+		qui mvencode `var'_stat_`scen', mv(0) override
+		qui replace `tax'_base_`scen' = `tax'_base_`scen' + `var'_stat_`scen'
 	}
 
 	foreach var in ``tax'_taxable_list' {
@@ -51,7 +37,7 @@ foreach tax in pit sic {
 }
 end
 
-
+*WHY NET FOR R IS ZERO???
 
 
 global market_income 				labor_inc self_inc other_inc
@@ -71,7 +57,7 @@ global sic_pt_b = 1
 global pit_pt_r = ${pit_pt_b}
 global sic_pt_r = ${sic_pt_b}
 
-global d = 10 ^ (-10)
+global d = 10 ^ (-8)
 global report = 1
 
 set varabbrev off
@@ -101,8 +87,12 @@ while max_gap > $d | min_gap < -$d {
 	SSC_direct_taxes_statutory, pit_taxable_list(labor_inc) pit_rate(${pit_rate_b}) sic_taxable_list(labor_inc) sic_rate(${sic_rate_b}) scen(b) 
 
 	foreach var in $market_income {
-		cap drop `var'_net_it 
-		gen `var'_net_it = `var'_stat_b + pit_b * pit_sh_`var'_b
+		
+		cap drop `var'_net_it
+		gen `var'_net_it = `var'_stat_b
+		foreach tax in $direct_taxes {
+			qui replace `var'_net_it = `var'_net_it + `tax'_sh_`var'_b * `tax'_b
+		}
 		
 		cap drop `var'_gap
 		gen `var'_gap =  `var'_net_b - `var'_net_it
@@ -135,7 +125,7 @@ su *_gap
 foreach var in $market_income {
 	gen `var'_eq_b = `var'_net_b
 	foreach tax in $SSC $direct_taxes {
-		replace `var'_eq_b = `var'_eq_b - ${pit_pt_b} * `tax'_sh_`var'_b * `tax'_b
+		replace `var'_eq_b = `var'_eq_b - `tax'_sh_`var'_b * `tax'_b * ${`tax'_pt_b}
 	}
 	assert  !mi(`var'_eq_b) 
 }
@@ -144,7 +134,7 @@ foreach var in $market_income {
 foreach var in $market_income {
 	gen `var'_eq_r = `var'_eq_b 
 }
-xxxxxxxxxxx
+
 * step 4. calculating the statutory wage for reform case via loop to make sure that the equilibrium wage matches.
 foreach var in $market_income {
 	gen `var'_stat_r = `var'_eq_r // starting point
@@ -153,33 +143,25 @@ foreach var in $market_income {
 local s = 1
 scalar max_gap = $d * 2 // to start the cycle
 
-while max_gap > $d | min_gap < -$d {
+while (max_gap > $d | min_gap < -$d) {
 	
-	SSC_direct_taxes_statutory, pit_taxable_list(labor_inc) pit_rate(${pit_rate_b}) sic_taxable_list(labor_inc) sic_rate(${sic_rate_b}) scen(r)
+	SSC_direct_taxes_statutory, pit_taxable_list(labor_inc) pit_rate(${pit_rate_r}) sic_taxable_list(labor_inc) sic_rate(${sic_rate_r}) scen(r)
 	
 	foreach var in $market_income {
 		
-	cap drop `var'_net_r
-	gen `var'_eq_r = 0
-	foreach tax in $direct_taxes {
-		replace `var'_net_r = `var'_net_r - ${pit_pt_r} * `tax'_sh_`var'_r * `tax'_r
-	}
+		cap drop `var'_net_r
+		gen `var'_net_r = `var'_stat_r
+		foreach tax in $direct_taxes {
+			qui replace `var'_net_r = `var'_net_r + `tax'_sh_`var'_r * `tax'_r
+		}
 		
-	cap drop `var'_eq_r
-	gen `var'_eq_r = `var'_net_r
-	foreach tax in $SSC $direct_taxes {
-		replace `var'_eq_r = `var'_eq_r - ${pit_pt_r} * `tax'_sh_`var'_r * `tax'_r
-	}
-	assert  !mi(`var'_eq_r) 
-}
+		cap drop `var'_eq_it
+		gen `var'_eq_it = `var'_net_r
+		foreach tax in $SSC $direct_taxes {
+			qui replace `var'_eq_it = `var'_eq_it - `tax'_sh_`var'_r * `tax'_r * ${`tax'_pt_r}
+		}
+		assert  !mi(`var'_eq_it) 
 	
-	cap drop labor_inc_eq_it
-	gen labor_inc_eq_it = labor_inc_net_r - ${pit_pt_r} * pit_r - ${sic_pt_r} * sic_r
-	
-	cap drop other_inc_eq_it
-	gen other_inc_eq_it = other_inc_net_r
-
-	foreach var in $market_income {
 		cap drop `var'_gap
 		gen `var'_gap =  `var'_eq_r - `var'_eq_it
 	}
@@ -199,11 +181,13 @@ while max_gap > $d | min_gap < -$d {
 	}	
 	
 	foreach var in $market_income {
-		qui replace `var'_stat_r = `var'_stat_r + `var'_gap 
+		qui replace `var'_stat_r = `var'_stat_r + `var'_gap * 0.9
 	}
 	local s = `s' + 1
 }
 disp "end at step `s'"
 su *_gap
 
-su labor_inc_net_b labor_inc_net_r other_inc_net_b other_inc_net_r labor_inc_eq_r other_inc_eq_r
+foreach var in $market_income {
+	su `var'_net_b `var'_net_r `var'_eq_b `var'_stat_b `var'_stat_r
+}
