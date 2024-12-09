@@ -73,6 +73,7 @@ global pit_pt = ${pit_pt_b}
 
 local s = 1
 scalar max_gap = $d * 2 // to start the cycle
+scalar min_gap = 0 // to start the cycle
 
 * the iterartion is via statutory income
 while (max_gap > $d | min_gap < -$d) {
