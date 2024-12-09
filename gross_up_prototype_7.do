@@ -30,7 +30,7 @@ foreach tax in pit sic {
 	cap drop `tax'_base
 	gen `tax'_base = 0
 	foreach inc in ``tax'_taxable_list' {
-		qui mvencode `inc'_stat, mv(0) override
+		*qui mvencode `inc'_stat, mv(0) override
 		qui replace `tax'_base = `tax'_base + `inc'_stat
 	}
 
@@ -165,7 +165,7 @@ global pit_pt = ${pit_pt_r}
 
 local s = 1
 scalar max_gap = $d * 2 // to start the cycle
-
+scalar min_gap = 0 // to start the cycle
 
 * the iterartion is via statutory income
 while (max_gap > $d | min_gap < -$d) {
