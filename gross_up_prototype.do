@@ -26,7 +26,7 @@ capture program drop SSC_direct_taxes_statutory
 program define SSC_direct_taxes_statutory
 syntax, pit_taxable_list(namelist) sic_taxable_list(namelist) 
 
-foreach tax in pit sic {
+foreach tax in $direct_taxes $SSC {
 	cap drop `tax'_base
 	gen `tax'_base = 0
 	foreach inc in ``tax'_taxable_list' {
